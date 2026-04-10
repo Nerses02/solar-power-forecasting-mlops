@@ -24,8 +24,7 @@ plt.show()
 # --- ԳՐԱՖԻԿ 2. Կոռելյացիոն Մատրիցա ---
 # Ցույց է տալիս, թե որ պարամետրն է ամենաշատը կապված գեներացիայի հետ
 plt.figure(figsize=(12, 8))
-numeric_cols = df[['DC_POWER', 'MODULE_TEMPERATURE', 
-                   'IRRADIATION', 'T2M', 'WS10M', 'RH2M', 'PRECTOTCORR']]
+numeric_cols = df[['DC_POWER', 'MODULE_TEMPERATURE', 'IRRADIATION', 'T2M', 'WS10M', 'RH2M', 'PRECTOTCORR']]
 corr_matrix = numeric_cols.corr()
 
 sns.heatmap(corr_matrix, annot=True, cmap='coolwarm', fmt=".2f", linewidths=.5)
