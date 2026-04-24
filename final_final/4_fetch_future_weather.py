@@ -19,8 +19,11 @@ params = {"latitude": LAT, "longitude": LON,
 hourly = requests.get(url, params=params).json()['hourly']
 df_fut = pd.DataFrame({
     'DATE_TIME': pd.to_datetime(hourly['time']),
-    'IRRADIATION': hourly['shortwave_radiation'], 'T2M': hourly['temperature_2m'],
-    'WS10M': hourly['wind_speed_10m'], 'RH2M': hourly['relative_humidity_2m'],
+    # ԲԱԺԱՆՈՒՄ ԵՆՔ 1000-Ի, ՈՐՊԵՍԶԻ ՎԱՏՏԵՐԸ ԴԱՌՆԱՆ ԿԻԼՈՎԱՏՏ (0.0-1.2 միջակայք)
+    'IRRADIATION': [x / 1000.0 for x in hourly['shortwave_radiation']],
+    'T2M': hourly['temperature_2m'],
+    'WS10M': hourly['wind_speed_10m'],
+    'RH2M': hourly['relative_humidity_2m'],
     'PRECTOTCORR': hourly['precipitation']
 })
 
