@@ -9,12 +9,16 @@ from xgboost import XGBRegressor
 from datetime import datetime
 import shap
 import matplotlib.pyplot as plt
+import os
 
 # ==========================================
 # 1. ԷՋԻ ԿԱՐԳԱՎՈՐՈՒՄՆԵՐ ԵՎ ՀԻՇՈՂՈՒԹՅՈՒՆ (STATE)
 # ==========================================
 # Նշում. Multi-page հավելվածներում յուրաքանչյուր էջ կարող է ունենալ իր config-ը
 st.set_page_config(page_title="Solar Forecast - ML Pipeline", page_icon="📈", layout="wide")
+
+# Ուղղում՝ Ստեղծել տվյալների պանակը, եթե այն գոյություն չունի
+os.makedirs('./data', exist_ok=True)
 
 # Սեսիայի հիշողության սկզբնավորում, որպեսզի Tab-երը փոխելիս տվյալները չկորչեն
 if 'df_future' not in st.session_state:
@@ -196,7 +200,7 @@ with tab2:
                 # save df_final to a temporary CSV for debugging
                 df_final.to_csv('./data/df_final_debug.csv', index=False)
                 
-                st.info("4/4. XGBoost մոդելների վարժեցում... (սպասեք փուչիկներին 🎈)")
+                st.info("4/4. XGBoost մոդելների վարժեցում...")
                 
                 # Մոդել 1. Ջերմաստիճան
                 X_weather = df_final[['IRRADIATION', 'T2M', 'WS10M', 'RH2M', 'PRECTOTCORR']]
@@ -223,7 +227,6 @@ with tab2:
                 st.cache_resource.clear()
                 
                 st.success("✅ Մոդելները հաջողությամբ թարմացվել են և պատրաստ են աշխատանքի:")
-                st.balloons()
             
             except Exception as e:
                 st.error(f"❌ Տվյալների մշակման սխալ: Համոզվեք, որ CSV սյունակները համապատասխանում են ստանդարտին: {e}")

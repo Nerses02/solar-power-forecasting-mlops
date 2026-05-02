@@ -3,6 +3,10 @@ import requests
 import joblib
 import json
 import streamlit as st
+import os
+
+# Ստեղծել տվյալների պանակը, եթե այն գոյություն չունի
+os.makedirs('./data', exist_ok=True)
 
 @st.cache_resource
 def load_models_and_config():
