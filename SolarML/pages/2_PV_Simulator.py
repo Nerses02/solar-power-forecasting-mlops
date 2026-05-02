@@ -10,8 +10,8 @@ from utils import fetch_nasa_annual, load_models_and_config
 st.set_page_config(page_title="PV Simulator", page_icon="🏗️", layout="wide")
 
 _, _, config = load_models_and_config()
-default_lat = float(config['location']['latitude']) if config else 40.18
-default_lon = float(config['location']['longitude']) if config else 44.51
+default_lat = float(config['location']['latitude']) if config else 19.99
+default_lon = float(config['location']['longitude']) if config else 73.79
 
 # Ստեղծում ենք Անխափան Հիշողություն (Persistent Dictionary) ՊԱՐԱՄԵՏՐԵՐԻ համար
 if 'pv_settings' not in st.session_state:

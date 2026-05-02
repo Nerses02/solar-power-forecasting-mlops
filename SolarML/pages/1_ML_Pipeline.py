@@ -162,10 +162,10 @@ with tab2:
     col_t1, col_t2 = st.columns(2)
     with col_t1:
         gen_file = st.file_uploader("1. Գեներացիայի բազա (Plant Generation CSV)", type=['csv'])
-        train_lat = st.number_input("Կայանի Լայնություն (Training Lat)", value=float(config['location']['latitude']) if config else 40.18, format="%.4f")
+        train_lat = st.number_input("Կայանի Լայնություն (Training Lat)", value=float(config['location']['latitude']) if config else 19.99, format="%.4f")
     with col_t2:
         wea_file = st.file_uploader("2. Սենսորների բազա (Weather Sensor CSV)", type=['csv'])
-        train_lon = st.number_input("Կայանի Երկայնություն (Training Lon)", value=float(config['location']['longitude']) if config else 44.51, format="%.4f")
+        train_lon = st.number_input("Կայանի Երկայնություն (Training Lon)", value=float(config['location']['longitude']) if config else 73.79, format="%.4f")
 
     if st.button("⚙️ Սկսել Ուսուցման Գործընթացը", type="primary"):
         if gen_file and wea_file:
