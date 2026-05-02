@@ -7,9 +7,9 @@ import streamlit as st
 @st.cache_resource
 def load_models_and_config():
     try:
-        temp_model = joblib.load('./.env/temperature_model.pkl')
-        power_model = joblib.load('./.env/power_model.pkl')
-        with open('./.env/config.json', 'r') as f:
+        temp_model = joblib.load('./data/temperature_model.pkl')
+        power_model = joblib.load('./data/power_model.pkl')
+        with open('./data/config.json', 'r') as f:
             config = json.load(f)
         return temp_model, power_model, config
     except Exception as e:
