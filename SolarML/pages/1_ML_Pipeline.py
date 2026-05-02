@@ -47,13 +47,18 @@ def load_models():
 def fetch_future_weather(lat, lon, days):
     """Բեռնում է ապագա եղանակը Open-Meteo-ից"""
     hours = days * 24
-    url = "https://api.open-meteo.com/v1/forecast"
+    # MLOps Security: Կարդում ենք API-ի հղումը գաղտնի և անվտանգ միջավայրից
+    try:
+        WEATHER_API_URL = st.secrets["open_meteo"]["API_URL"]
+    except:
+        # Լոկալ աշխատացնելու համար fallback
+        WEATHER_API_URL = "https://api.open-meteo.com/v1/forecast"
     params = {
         "latitude": lat, "longitude": lon, 
         "hourly": ["temperature_2m", "relative_humidity_2m", "wind_speed_10m", "precipitation", "shortwave_radiation"],
         "wind_speed_unit": "ms", "timezone": "auto", "forecast_hours": hours
     }
-    response = requests.get(url, params=params).json()
+    response = requests.get(WEATHER_API_URL, params=params).json()
     hourly = response['hourly']
     df = pd.DataFrame({
         'DATE_TIME': pd.to_datetime(hourly['time']),
@@ -66,15 +71,26 @@ def fetch_future_weather(lat, lon, days):
     return df
 
 def fetch_nasa_history(lat, lon, start_date, end_date):
-    """Բեռնում է պատմական կլիմայական տվյալները NASA POWER-ից"""
-    url = (f"https://power.larc.nasa.gov/api/temporal/hourly/point?"
+    """Բեռնում է պատմական կլիմայական տվյալները NASA POWER-ից՝ ապահովված հղումներով"""
+    
+    # MLOps Security: Կարդում ենք API-ի հղումը գաղտնի միջավայրից, իսկ չգտնելու դեպքում՝ օգտագործում լռելյայնը
+    try:
+        NASA_API_URL = st.secrets["nasa_power"]["API_URL"]
+    except:
+        NASA_API_URL = "https://power.larc.nasa.gov/api/temporal/hourly/point"
+
+    # Կառուցում ենք URL-ը դինամիկ կերպով
+    url = (f"{NASA_API_URL}?"
            f"parameters=ALLSKY_SFC_SW_DWN,ALLSKY_SFC_SW_DNI,ALLSKY_SFC_SW_DIFF,T2M,WS10M,RH2M,PRECTOTCORR"
            f"&community=RE&longitude={lon}&latitude={lat}&start={start_date}&end={end_date}&format=JSON")
+    
     resp = requests.get(url).json()
+    
     df = pd.DataFrame(resp['properties']['parameter']).reset_index().rename(columns={'index': 'DATE_TIME'})
     df['DATE_TIME'] = pd.to_datetime(df['DATE_TIME'], format='%Y%m%d%H')
     df.replace(-999.0, pd.NA, inplace=True)
     df.ffill(inplace=True)
+    
     return df
 
 # Մոդելների բեռնում
