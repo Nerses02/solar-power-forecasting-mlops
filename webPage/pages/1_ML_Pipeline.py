@@ -7,6 +7,8 @@ import json
 import plotly.graph_objects as go
 from xgboost import XGBRegressor
 from datetime import datetime
+import shap
+import matplotlib.pyplot as plt
 
 # ==========================================
 # 1. ԷՋԻ ԿԱՐԳԱՎՈՐՈՒՄՆԵՐ ԵՎ ՀԻՇՈՂՈՒԹՅՈՒՆ (STATE)
@@ -75,7 +77,7 @@ temp_model, power_model, config = load_models()
 # ==========================================
 # 3. ՆԵՐԴԻՐՆԵՐԻ (TABS) ՍՏԵՂԾՈՒՄ
 # ==========================================
-tab1, tab2 = st.tabs(["📊 Կանխատեսում (Dashboard)", "🧠 Մոդելների Ուսուցում (Training)"])
+tab1, tab2, tab3 = st.tabs(["📊 Կանխատեսում (Dashboard)", "🧠 Մոդելների Ուսուցում (Training)", "💡 Մոդելի Մեկնաբանելիություն (SHAP)"])
 
 # ==========================================
 # ՆԵՐԴԻՐ 1: ԿԱՆԽԱՏԵՍՈՒՄ (DASHBOARD)
@@ -189,6 +191,8 @@ with tab2:
                 df_local = pd.merge(df_gen, df_wea, on=['DATE_TIME', 'PLANT_ID'], suffixes=('_gen', '_wea'))
                 df_local['HOUR_ROUNDED'] = df_local['DATE_TIME'].dt.floor('h')
                 df_final = pd.merge(df_local, df_nasa, left_on='HOUR_ROUNDED', right_on='DATE_TIME', suffixes=('', '_nasa'))
+                # save df_final to a temporary CSV for debugging
+                df_final.to_csv('./.env/df_final_debug.csv', index=False)
                 
                 st.info("4/4. XGBoost մոդելների վարժեցում... (սպասեք փուչիկներին 🎈)")
                 
@@ -210,7 +214,7 @@ with tab2:
                 
                 # Կոնֆիգի թարմացում
                 new_config = {"location": {"latitude": train_lat, "longitude": train_lon}}
-                with open('config.json', 'w') as f:
+                with open('./.env/config.json', 'w') as f:
                     json.dump(new_config, f)
                 
                 # Քեշի մաքրում՝ նոր մոդելները ակտիվացնելու համար
@@ -223,3 +227,94 @@ with tab2:
                 st.error(f"❌ Տվյալների մշակման սխալ: Համոզվեք, որ CSV սյունակները համապատասխանում են ստանդարտին: {e}")
         else:
             st.warning("Ուսուցումը սկսելու համար անհրաժեշտ է բեռնել երկու ֆայլերն էլ:")
+
+
+# ==========================================
+# ՆԵՐԴԻՐ 3: ՄՈԴԵԼԻ ՄԵԿՆԱԲԱՆԵԼԻՈՒԹՅՈՒՆ (SHAP)
+# ==========================================
+with tab3:
+    st.markdown("### 💡 Արհեստական Ինտելեկտի Բացատրելիություն (SHAP Analysis)")
+    
+    if power_model is None:
+        st.warning("⚠️ Մոդելը բացակայում է: Խնդրում ենք նախ վարժեցնել այն «Մոդելների Ուսուցում» բաժնում:")
+    elif st.session_state.df_future is None:
+        st.info("👈 Խնդրում ենք նախ անցնել «Կանխատեսում» ներդիր, մուտքագրել օրերը և սեղմել «Կանխատեսել», որպեսզի համակարգն ունենա տվյալներ վերլուծության համար:")
+    else:
+        st.markdown("Այս բաժինը թույլ է տալիս հասկանալ «Սև արկղի» (XGBoost) կայացրած որոշումները։ Տեսեք, թե ինչպես են օդերևութաբանական գործոններն ազդել վերջնական հզորության վրա:")
+        
+        # Վերցնում ենք Կանխատեսման ներդիրում գեներացված ապագա տվյալները
+        df_shap = st.session_state.df_future.copy()
+        X_shap = df_shap[['IRRADIATION', 'MODULE_TEMPERATURE', 'T2M', 'WS10M', 'RH2M', 'PRECTOTCORR']]
+        
+        # SHAP արժեքների հաշվարկման ֆունկցիա (քեշավորված արագության համար)
+        @st.cache_data
+        def calculate_shap_values(_model, X):
+            explainer = shap.TreeExplainer(_model)
+            shap_values = explainer(X)
+            
+            armenian_names = {
+                'IRRADIATION': 'Ճառագայթում (կՎտ/մ²)',
+                'MODULE_TEMPERATURE': 'Վահանակի Ջերմ. (°C)',
+                'T2M': 'Օդի Ջերմաստիճան (°C)',
+                'WS10M': 'Քամու Արագություն (մ/վ)',
+                'RH2M': 'Խոնավություն (%)',
+                'PRECTOTCORR': 'Տեղումներ (մմ)'
+            }
+            shap_values.feature_names = [armenian_names.get(name, name) for name in X.columns]
+            
+            return explainer, shap_values
+
+        with st.spinner("Հաշվարկվում են SHAP մատրիցաները..."):
+            explainer, shap_values = calculate_shap_values(power_model, X_shap)
+        
+        # --- 1. ԳԼՈԲԱԼ ՄԵԿՆԱԲԱՆՈՒԹՅՈՒՆ (Summary Plot) ---
+        st.markdown("---")
+        st.subheader("1. Հատկանիշների գլոբալ ազդեցությունը (Summary Plot)")
+        st.write("Այս գրաֆիկը ցույց է տալիս, թե ընդհանուր առմամբ որ պարամետրերն ունեն ամենամեծ ազդեցությունը մոդելի վրա։ Կարմիր կետերը ցույց են տալիս տվյալ պարամետրի բարձր արժեքը, իսկ կապույտը՝ ցածր։")
+        
+        fig_summary = plt.figure(figsize=(12, 6))
+        shap.summary_plot(shap_values.values, X_shap, feature_names=shap_values.feature_names, plot_type="dot", show=False)
+        plt.subplots_adjust(left=0.35) 
+        st.pyplot(fig_summary)
+        plt.clf()
+
+        # --- 2. ԼՈԿԱԼ ՄԵԿՆԱԲԱՆՈՒԹՅՈՒՆ (Bar Plot) ---
+        st.markdown("---")
+        st.subheader("2. Լոկալ ազդեցություն (Մեկ կոնկրետ ժամվա վերլուծություն)")
+        st.write("Այս գրաֆիկը ցույց է տալիս, թե տվյալ պահին որ գործոններն են առավելապես նպաստել կամ խոչընդոտել էներգիայի արտադրությանը:")
+        
+        time_options = df_shap['DATE_TIME'].dt.strftime('%Y-%m-%d %H:%M').tolist()
+        selected_time = st.selectbox("📅 Ընտրեք ամսաթիվը և ժամը:", time_options)
+        hour_index = time_options.index(selected_time)
+        
+        fig_bar = plt.figure(figsize=(12, 6)) 
+        
+        shap.plots.bar(shap_values[hour_index], show=False)
+        
+        ax = plt.gca()
+        ax.tick_params(axis='y', pad=40) 
+        ax.grid(axis='x', color='gray', linestyle=':', linewidth=0.5, alpha=0.7)
+        
+        # =================================================================
+        # ՆՈՐ ԼՈՒԾՈՒՄ: Ձեռքով հաշվում և ավելացնում ենք բացակայող թվերը
+        
+        # 1. Վերցնում ենք բազային արժեքը (Expected Value)
+        base_val = shap_values[hour_index].base_values
+        
+        # 2. Վերջնական կանխատեսումը հավասար է բազային արժեք + բոլոր ազդեցությունները
+        final_val = base_val + shap_values[hour_index].values.sum()
+        
+        # 3. Գրում ենք ԲԱԶԱՅԻՆ արժեքը գրաֆիկի ՆԵՐՔԵՎՈՒՄ ԱՋԱԿՈՂՄՅԱՆ մասում
+        plt.figtext(0.95, 0.02, rf"$E[f(X)]$ = {base_val:.3f}", 
+                    fontsize=12, color='#777777', ha='right', va='bottom')
+        
+        # 4. Գրում ենք ՎԵՐՋՆԱԿԱՆ արժեքը գրաֆիկի ՎԵՐԵՎՈՒՄ ԱՋԱԿՈՂՄՅԱՆ մասում
+        plt.figtext(0.95, 0.95, rf"$f(x)$ = {final_val:.3f}", 
+                    fontsize=14, color='#222222', ha='right', va='top', weight='bold')
+        # =================================================================
+        
+        # Մի փոքր ավելի մեծ տեղ ենք թողնում վերևից ու ներքևից մեր գրած թվերի համար
+        plt.subplots_adjust(left=0.40, right=0.95, top=0.85, bottom=0.15) 
+        
+        st.pyplot(fig_bar)
+        plt.clf()
