@@ -11,16 +11,17 @@ import shap
 import matplotlib.pyplot as plt
 import os
 
+# --- ՆՈՐ ԱՎԵԼԱՑՎԱԾ ԳՐԱԴԱՐԱՆՆԵՐԸ ---
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import mean_absolute_error
+
 # ==========================================
 # 1. ԷՋԻ ԿԱՐԳԱՎՈՐՈՒՄՆԵՐ ԵՎ ՀԻՇՈՂՈՒԹՅՈՒՆ (STATE)
 # ==========================================
-# Նշում. Multi-page հավելվածներում յուրաքանչյուր էջ կարող է ունենալ իր config-ը
 st.set_page_config(page_title="Solar Forecast - ML Pipeline", page_icon="📈", layout="wide")
 
-# Ուղղում՝ Ստեղծել տվյալների պանակը, եթե այն գոյություն չունի
 os.makedirs('./data', exist_ok=True)
 
-# Սեսիայի հիշողության սկզբնավորում, որպեսզի Tab-երը փոխելիս տվյալները չկորչեն
 if 'df_future' not in st.session_state:
     st.session_state.df_future = None
 
@@ -40,18 +41,15 @@ def load_models():
             config = json.load(f)
         return temp_model, power_model, config
     except Exception as e:
-        # Սա կտպի սխալը (կամ կարող եք օգտագործել st.error(e))
         print(f"Մոդելները կամ config ֆայլը բեռնելու սխալ: {e}") 
         return None, None, None
 
 def fetch_future_weather(lat, lon, days):
     """Բեռնում է ապագա եղանակը Open-Meteo-ից"""
     hours = days * 24
-    # MLOps Security: Կարդում ենք API-ի հղումը գաղտնի և անվտանգ միջավայրից
     try:
         WEATHER_API_URL = st.secrets["open_meteo"]["API_URL"]
     except:
-        # Լոկալ աշխատացնելու համար fallback
         WEATHER_API_URL = "https://api.open-meteo.com/v1/forecast"
     params = {
         "latitude": lat, "longitude": lon, 
@@ -62,7 +60,7 @@ def fetch_future_weather(lat, lon, days):
     hourly = response['hourly']
     df = pd.DataFrame({
         'DATE_TIME': pd.to_datetime(hourly['time']),
-        'IRRADIATION': [x / 1000.0 for x in hourly['shortwave_radiation']], # Վատտը -> կՎտ
+        'IRRADIATION': [x / 1000.0 for x in hourly['shortwave_radiation']], 
         'T2M': hourly['temperature_2m'],
         'WS10M': hourly['wind_speed_10m'],
         'RH2M': hourly['relative_humidity_2m'],
@@ -71,15 +69,12 @@ def fetch_future_weather(lat, lon, days):
     return df
 
 def fetch_nasa_history(lat, lon, start_date, end_date):
-    """Բեռնում է պատմական կլիմայական տվյալները NASA POWER-ից՝ ապահովված հղումներով"""
-    
-    # MLOps Security: Կարդում ենք API-ի հղումը գաղտնի միջավայրից, իսկ չգտնելու դեպքում՝ օգտագործում լռելյայնը
+    """Բեռնում է պատմական կլիմայական տվյալները NASA POWER-ից"""
     try:
         NASA_API_URL = st.secrets["nasa_power"]["API_URL"]
     except:
         NASA_API_URL = "https://power.larc.nasa.gov/api/temporal/hourly/point"
 
-    # Կառուցում ենք URL-ը դինամիկ կերպով
     url = (f"{NASA_API_URL}?"
            f"parameters=ALLSKY_SFC_SW_DWN,ALLSKY_SFC_SW_DNI,ALLSKY_SFC_SW_DIFF,T2M,WS10M,RH2M,PRECTOTCORR"
            f"&community=RE&longitude={lon}&latitude={lat}&start={start_date}&end={end_date}&format=JSON")
@@ -93,7 +88,6 @@ def fetch_nasa_history(lat, lon, start_date, end_date):
     
     return df
 
-# Մոդելների բեռնում
 temp_model, power_model, config = load_models()
 
 # ==========================================
@@ -110,9 +104,7 @@ with tab1:
     else:
         st.markdown("### ⚙️ Օպերատիվ Կառավարման Վահանակ")
         
-        # Դաշտերի դասավորում սյունակներով
         col_lat, col_lon, col_days, col_btn = st.columns([1, 1, 2, 1])
-        
         with col_lat:
             lat = st.number_input("Լայնություն (Lat)", value=float(config['location']['latitude']), format="%.4f")
         with col_lon:
@@ -120,15 +112,13 @@ with tab1:
         with col_days:
             forecast_days = st.slider("Կանխատեսման հորիզոն (Օրեր)", min_value=1, max_value=7, value=3)
         with col_btn:
-            st.write("") # Ուղղահայաց հավասարեցում
+            st.write("") 
             run_forecast = st.button("🚀 Կանխատեսել", use_container_width=True, type="primary")
 
-        # Հաշվարկային տրամաբանություն
         if run_forecast:
             with st.spinner('Միանում ենք եղանակային սերվերներին...'):
                 df_fut = fetch_future_weather(lat, lon, forecast_days)
                 
-                # Կասկադային կանխատեսում
                 X_weather = df_fut[['IRRADIATION', 'T2M', 'WS10M', 'RH2M', 'PRECTOTCORR']]
                 pred_temp = temp_model.predict(X_weather)
                 
@@ -137,10 +127,8 @@ with tab1:
                 X_full.insert(1, 'MODULE_TEMPERATURE', pred_temp)
                 df_fut['PREDICTED_DC_POWER'] = np.maximum(0, power_model.predict(X_full))
                 
-                # Արդյունքի պահպանում սեսիայի մեջ
                 st.session_state.df_future = df_fut
 
-        # Արդյունքների վիզուալիզացիա (եթե առկա են հիշողության մեջ)
         if st.session_state.df_future is not None:
             df_display = st.session_state.df_future
             
@@ -203,47 +191,80 @@ with tab2:
                 
                 df_nasa = fetch_nasa_history(train_lat, train_lon, start_str, end_str)
                 
-                with st.expander("👀 Դիտել սինքրոնիզացվող բազաները"):
-                    st.write("**Գեներացիա:**", df_gen)
-                    st.write("**Սենսորներ:**", df_wea)
-                    st.write("**NASA:**", df_nasa)
-                
                 st.info("3/4. Տվյալների միավորում և նախապատրաստում...")
-                # Միավորում ըստ ժամանակի և PLANT_ID-ի
                 df_local = pd.merge(df_gen, df_wea, on=['DATE_TIME', 'PLANT_ID'], suffixes=('_gen', '_wea'))
                 df_local['HOUR_ROUNDED'] = df_local['DATE_TIME'].dt.floor('h')
                 df_final = pd.merge(df_local, df_nasa, left_on='HOUR_ROUNDED', right_on='DATE_TIME', suffixes=('', '_nasa'))
-                # save df_final to a temporary CSV for debugging
                 df_final.to_csv('./data/df_final_debug.csv', index=False)
                 
-                st.info("4/4. XGBoost մոդելների վարժեցում...")
+                st.info("4/4. XGBoost մոդելների վարժեցում և գնահատում...")
                 
-                # Մոդել 1. Ջերմաստիճան
+                # --- Մոդել 1. Ջերմաստիճան (Նոր Լոգիկա) ---
                 X_weather = df_final[['IRRADIATION', 'T2M', 'WS10M', 'RH2M', 'PRECTOTCORR']]
                 y_temp = df_final['MODULE_TEMPERATURE']
-                new_temp_model = XGBRegressor(learning_rate=0.1, max_depth=7, n_estimators=300, random_state=42)
-                new_temp_model.fit(X_weather, y_temp)
                 
-                # Մոդել 2. Հզորություն
+                # Բաժանում ենք գնահատման համար
+                X_train_t, X_test_t, y_train_t, y_test_t = train_test_split(X_weather, y_temp, test_size=0.2, random_state=42)
+                
+                new_temp_model = XGBRegressor(learning_rate=0.1, max_depth=6, n_estimators=250, random_state=42)
+                new_temp_model.fit(X_train_t, y_train_t)
+                
+                # Հաշվում ենք MAE
+                temp_preds = new_temp_model.predict(X_test_t)
+                mae_ml = mean_absolute_error(y_test_t, temp_preds)
+                
+                # --- Մոդել 2. Հզորություն ---
                 X_full = df_final[['IRRADIATION', 'MODULE_TEMPERATURE', 'T2M', 'WS10M', 'RH2M', 'PRECTOTCORR']]
                 y_power = df_final['DC_POWER']
                 new_power_model = XGBRegressor(learning_rate=0.1, max_depth=7, n_estimators=300, random_state=42)
                 new_power_model.fit(X_full, y_power)
                 
-                # Արդյունքների պահպանում սկավառակի վրա
+                # Արդյունքների պահպանում
                 joblib.dump(new_temp_model, './data/temperature_model.pkl')
                 joblib.dump(new_power_model, './data/power_model.pkl')
                 
-                # Կոնֆիգի թարմացում
                 new_config = {"location": {"latitude": train_lat, "longitude": train_lon}}
                 with open('./data/config.json', 'w') as f:
                     json.dump(new_config, f)
                 
-                # Քեշի մաքրում՝ նոր մոդելները ակտիվացնելու համար
                 st.cache_resource.clear()
                 
-                st.success("✅ Մոդելները հաջողությամբ թարմացվել են և պատրաստ են աշխատանքի:")
-            
+                # --- ՏՊՈՒՄ ԵՆՔ ԱՐԴՅՈՒՆՔՆԵՐԸ ---
+                st.success(f"✅ Մոդելները հաջողությամբ թարմացվել են! Վիրտուալ ջերմաչափի սխալանքը (MAE): **{mae_ml:.2f} °C**")
+                
+                st.markdown("#### 📈 Ջերմաստիճանի Մոդելի Ճշգրտության Ստուգում (Իրական ընդդեմ Կանխատեսվածի)")
+                
+                # Գրաֆիկի կառուցում Streamlit-ում
+                inverter_id = df_final['SOURCE_KEY_gen'].unique()[0]
+                df_single = df_final[df_final['SOURCE_KEY_gen'] == inverter_id].copy()
+                df_single['DATE_TIME'] = pd.to_datetime(df_single['DATE_TIME'])
+                df_single = df_single.sort_values('DATE_TIME')
+                
+                # Ապահովության համար վերցնում ենք մաքսիմում 240 ժամ (10 օր)
+                plot_length = min(240, len(df_single))
+                df_plot = df_single.iloc[200:200+plot_length].copy() if len(df_single) > 200 else df_single.copy()
+                
+                X_plot = df_plot[['IRRADIATION', 'T2M', 'WS10M', 'RH2M', 'PRECTOTCORR']]
+                y_ml_predicted = new_temp_model.predict(X_plot)
+                
+                fig, ax = plt.subplots(figsize=(14, 6))
+                ax.plot(df_plot['DATE_TIME'], df_plot['MODULE_TEMPERATURE'], 
+                         label='Իրական Սենսոր (Actual Module Temp)', color='crimson', linewidth=2)
+                ax.plot(df_plot['DATE_TIME'], y_ml_predicted, 
+                         label='XGBoost Կանխատեսում (ML Predicted Temp)', color='mediumseagreen', linewidth=2, linestyle='--')
+                
+                ax.set_title('Արևային Վահանակի Ջերմաստիճան. Իրականություն ընդդեմ XGBoost Կանխատեսման', fontsize=14)
+                ax.set_xlabel('Ամսաթիվ և Ժամ', fontsize=12)
+                ax.set_ylabel('Ջերմաստիճան (°C)', fontsize=12)
+                ax.legend(fontsize=11)
+                ax.grid(True, alpha=0.5)
+                plt.xticks(rotation=45)
+                plt.tight_layout()
+                
+                # Ցուցադրում ենք գրաֆիկը անմիջապես UI-ի մեջ
+                st.pyplot(fig)
+                plt.clf() # Մաքրում ենք հիշողությունը հաջորդ գրաֆիկների համար
+
             except Exception as e:
                 st.error(f"❌ Տվյալների մշակման սխալ: Համոզվեք, որ CSV սյունակները համապատասխանում են ստանդարտին: {e}")
         else:
@@ -263,11 +284,9 @@ with tab3:
     else:
         st.markdown("Այս բաժինը թույլ է տալիս հասկանալ «Սև արկղի» (XGBoost) կայացրած որոշումները։ Տեսեք, թե ինչպես են օդերևութաբանական գործոններն ազդել վերջնական հզորության վրա:")
         
-        # Վերցնում ենք Կանխատեսման ներդիրում գեներացված ապագա տվյալները
         df_shap = st.session_state.df_future.copy()
         X_shap = df_shap[['IRRADIATION', 'MODULE_TEMPERATURE', 'T2M', 'WS10M', 'RH2M', 'PRECTOTCORR']]
         
-        # SHAP արժեքների հաշվարկման ֆունկցիա (քեշավորված արագության համար)
         @st.cache_data
         def calculate_shap_values(_model, X):
             explainer = shap.TreeExplainer(_model)
@@ -316,25 +335,14 @@ with tab3:
         ax.tick_params(axis='y', pad=40) 
         ax.grid(axis='x', color='gray', linestyle=':', linewidth=0.5, alpha=0.7)
         
-        # =================================================================
-        # ՆՈՐ ԼՈՒԾՈՒՄ: Ձեռքով հաշվում և ավելացնում ենք բացակայող թվերը
-        
-        # 1. Վերցնում ենք բազային արժեքը (Expected Value)
         base_val = shap_values[hour_index].base_values
-        
-        # 2. Վերջնական կանխատեսումը հավասար է բազային արժեք + բոլոր ազդեցությունները
         final_val = base_val + shap_values[hour_index].values.sum()
         
-        # 3. Գրում ենք ԲԱԶԱՅԻՆ արժեքը գրաֆիկի ՆԵՐՔԵՎՈՒՄ ԱՋԱԿՈՂՄՅԱՆ մասում
         plt.figtext(0.95, 0.02, rf"$E[f(X)]$ = {base_val:.3f}", 
                     fontsize=12, color='#777777', ha='right', va='bottom')
-        
-        # 4. Գրում ենք ՎԵՐՋՆԱԿԱՆ արժեքը գրաֆիկի ՎԵՐԵՎՈՒՄ ԱՋԱԿՈՂՄՅԱՆ մասում
         plt.figtext(0.95, 0.95, rf"$f(x)$ = {final_val:.3f}", 
                     fontsize=14, color='#222222', ha='right', va='top', weight='bold')
-        # =================================================================
         
-        # Մի փոքր ավելի մեծ տեղ ենք թողնում վերևից ու ներքևից մեր գրած թվերի համար
         plt.subplots_adjust(left=0.40, right=0.95, top=0.85, bottom=0.15) 
         
         st.pyplot(fig_bar)
