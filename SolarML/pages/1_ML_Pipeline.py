@@ -195,7 +195,6 @@ with tab2:
                 df_local = pd.merge(df_gen, df_wea, on=['DATE_TIME', 'PLANT_ID'], suffixes=('_gen', '_wea'))
                 df_local['HOUR_ROUNDED'] = df_local['DATE_TIME'].dt.floor('h')
                 df_final = pd.merge(df_local, df_nasa, left_on='HOUR_ROUNDED', right_on='DATE_TIME', suffixes=('', '_nasa'))
-                df_final.to_csv('./data/df_final_debug.csv', index=False)
                 
                 st.info("4/4. XGBoost մոդելների վարժեցում և գնահատում...")
                 
