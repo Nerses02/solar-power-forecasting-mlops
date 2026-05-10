@@ -42,9 +42,10 @@ except Exception as e:
 @st.cache_resource
 def load_models():
     """Բեռնում է պահպանված մոդելները և config ֆայլը"""
-    # Գտնում ենք Ձեր ծրագրի հիմնական ճանապարհը
+    # Գտնում ենք pages պանակը
     current_dir = os.path.dirname(os.path.abspath(__file__))
-    data_dir = os.path.join(current_dir, 'data')
+    # Գնում ենք մեկ մակարդակ հետ (..) և մտնում data պանակ
+    data_dir = os.path.abspath(os.path.join(current_dir, '..', 'data'))
     
     try:
         temp_model = joblib.load(os.path.join(data_dir, 'temperature_model.pkl'))
@@ -232,9 +233,9 @@ with tab2:
                 
                 # Արդյունքների պահպանում
                 current_dir = os.path.dirname(os.path.abspath(__file__))
-                data_dir = os.path.join(current_dir, 'data')
+                # Գնում ենք մեկ մակարդակ հետ (..) և մտնում data պանակ
+                data_dir = os.path.abspath(os.path.join(current_dir, '..', 'data'))
                 
-                # Ստուգում ենք, որ data պանակը հաստատ գոյություն ունենա սերվերում
                 os.makedirs(data_dir, exist_ok=True)
                 
                 joblib.dump(new_temp_model, os.path.join(data_dir, 'temperature_model.pkl'))
