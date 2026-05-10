@@ -15,11 +15,18 @@ def fetch_pvgis_horizon(lat, lon):
     """
     Քաշում է տեղանքի 360° հորիզոնի պրոֆիլը PVGIS արբանյակային տվյալներից:
     """
-    # ՈՒՂՂՈՒՄ 1. Ճիշտ API հասցեն 'printhorizon' է
-    url = f"https://re.jrc.ec.europa.eu/api/v5_2/printhorizon?lat={lat}&lon={lon}&outputformat=json"
-    
+    # 1. Փորձում ենք վերցնել հիմնական հասցեն (Base URL) secrets-ից, կամ դնում ենք լռելյայնը
     try:
-        response = requests.get(url, timeout=10)
+        base_url = st.secrets["pvgis"]["API_URL"]
+    except (FileNotFoundError, KeyError):
+        base_url = "https://re.jrc.ec.europa.eu/api/v5_2/printhorizon"
+        
+    # 2. Այժմ կառուցում ենք վերջնական URL-ը՝ ավելացնելով դինամիկ կոորդինատները (lat, lon)
+    PVGIS_API_URL = f"{base_url}?lat={lat}&lon={lon}&outputformat=json"
+    
+    # 3. Կատարում ենք հարցումը
+    try:
+        response = requests.get(PVGIS_API_URL, timeout=10)
         data = response.json()
         
         if response.status_code != 200 or 'outputs' not in data:
@@ -82,7 +89,7 @@ if 'sim_total_mwh' not in st.session_state:
     st.session_state.sim_total_mwh = None
 
 st.title("🏗️ Տարեկան Ֆիզիկական Սիմուլյացիա (PV Simulator)")
-st.markdown("Համակարգը օգտագործում է NASA TMY կլիման և **DVGIS ռելիեֆային քարտեզավորումը**:")
+st.markdown("Համակարգը օգտագործում է NASA TMY կլիման և **ռելիեֆային քարտեզավորումը**:")
 
 # ==========================================
 # 2. ՁԱԽ ՎԱՀԱՆԱԿ: ՖԻԶԻԿԱԿԱՆ ՊԱՐԱՄԵՏՐԵՐ
@@ -275,7 +282,20 @@ if st.session_state.sim_df is not None:
                 line=dict(color='#7f8c8d', width=2), fillcolor='rgba(127, 140, 141, 0.4)'
             ))
             
-            fig3.update_layout(yaxis_title="Բարձրությունը հորիզոնից (°)", xaxis_title="Ժամանակ", hovermode="x unified")
+            fig3.update_layout(
+                yaxis_title="Բարձրությունը հորիզոնից (°)", 
+                xaxis_title="Ժամանակ", 
+                hovermode="x unified",
+                legend=dict(
+                    yanchor="top",
+                    y=0.98,         # 0-ից 1 միջակայքում՝ որքան բարձր լինի
+                    xanchor="right",
+                    x=1,         # 0-ից 1 միջակայքում՝ որքան աջ լինի
+                    bgcolor="rgba(0, 0, 0, 0)", # Թափանցիկ ֆոն
+                    bordercolor="rgba(255, 255, 255, 0.2)",
+                    borderwidth=1
+                )
+            )
             st.plotly_chart(fig3, use_container_width=True)
         else:
             st.warning("Ընտրեք ավարտի ամսաթիվը:")
@@ -290,7 +310,20 @@ if st.session_state.sim_df is not None:
             fig4 = go.Figure()
             fig4.add_trace(go.Scatter(x=df_plot4.index, y=df_plot4['poa_global'], mode='lines', fill='tozeroy', name='POA (Թեքված վահանակ)', line=dict(color='#2ecc71')))
             fig4.add_trace(go.Scatter(x=df_plot4.index, y=df_plot4['ghi'], mode='lines', name='GHI (Հորիզոնական)', line=dict(color='#95a5a6', dash='dot')))
-            fig4.update_layout(yaxis_title="Ճառագայթում (Վտ/մ²)", xaxis_title="Ժամանակ", hovermode="x unified")
+            fig4.update_layout(
+                yaxis_title="Ճառագայթում (Վտ/մ²)", 
+                xaxis_title="Ժամանակ", 
+                hovermode="x unified",
+                legend=dict(
+                    yanchor="top",
+                    y=0.98,         # 0-ից 1 միջակայքում՝ որքան բարձր լինի
+                    xanchor="right",
+                    x=1,         # 0-ից 1 միջակայքում՝ որքան աջ լինի
+                    bgcolor="rgba(0, 0, 0, 0)", # Թափանցիկ ֆոն
+                    bordercolor="rgba(255, 255, 255, 0.2)",
+                    borderwidth=1
+                )
+            )
             st.plotly_chart(fig4, use_container_width=True)
         else:
             st.warning("Ընտրեք ավարտի ամսաթիվը:")
