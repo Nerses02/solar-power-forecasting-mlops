@@ -27,14 +27,6 @@ if 'df_future' not in st.session_state:
 
 st.title("📈 Արևային Էներգիայի Կանխատեսման և Ուսուցման MLOps Հարթակ")
 
-st.write("Ընթացիկ ճանապարհ:", os.getcwd())
-try:
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    data_folder = os.path.join(current_dir, 'data')
-    st.write("Data պանակի պարունակությունը:", os.listdir(data_folder))
-except Exception as e:
-    st.error(f"Սերվերը չի կարողանում կարդալ data պանակը. {e}")
-
 # ==========================================
 # 2. ՕԺԱՆԴԱԿ ՖՈՒՆԿՑԻԱՆԵՐ
 # ==========================================
