@@ -293,7 +293,7 @@ with tab3:
         st.markdown("Այս բաժինը թույլ է տալիս հասկանալ «Սև արկղի» (XGBoost) կայացրած որոշումները։ Տեսեք, թե ինչպես են օդերևութաբանական գործոններն ազդել վերջնական հզորության վրա:")
         
         df_shap = st.session_state.df_future.copy()
-        X_shap = df_shap[['IRRADIATION', 'MODULE_TEMPERATURE', 'WS10M', 'RH2M', 'PRECTOTCORR']]
+        X_shap = df_shap[['IRRADIATION', 'MODULE_TEMPERATURE', 'T2M', 'WS10M', 'RH2M', 'PRECTOTCORR']]
         
         @st.cache_data
         def calculate_shap_values(_model, X):
@@ -303,6 +303,7 @@ with tab3:
             armenian_names = {
                 'IRRADIATION': 'Ճառագայթում (կՎտ/մ²)',
                 'MODULE_TEMPERATURE': 'Վահանակի Ջերմ. (°C)',
+                'T2M': 'Օդի Ջերմաստիճան (°C)',
                 'WS10M': 'Քամու Արագություն (մ/վ)',
                 'RH2M': 'Խոնավություն (%)',
                 'PRECTOTCORR': 'Տեղումներ (մմ)'
